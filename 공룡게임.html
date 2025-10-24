@@ -1,0 +1,121 @@
+// 필요한 HTML 요소들을 가져옵니다.
+const gameContainer = document.getElementById('game-container');
+const player = document.getElementById('player');
+const scoreDisplay = document.getElementById('score');
+const gameOverDisplay = document.getElementById('game-over');
+const restartButton = document.getElementById('restart-button');
+
+// 게임 설정
+const gameWidth = gameContainer.offsetWidth;
+const playerWidth = player.offsetWidth;
+let score = 0;
+let playerPosition = (gameWidth - playerWidth) / 2; // 플레이어 초기 위치 (중앙)
+let gameInterval; // 게임 루프를 위한 변수
+let isGameOver = false;
+
+// 게임 시작 함수
+function startGame() {
+    // 초기화
+    score = 0;
+    isGameOver = false;
+    playerPosition = (gameWidth - playerWidth) / 2;
+    player.style.left = playerPosition + 'px';
+    scoreDisplay.textContent = `점수: ${score}`;
+    gameOverDisplay.classList.add('hidden');
+
+    // 기존의 장애물들 제거
+    document.querySelectorAll('.obstacle').forEach(o => o.remove());
+
+    // 게임 루프 시작 (20ms 마다 게임 상태 업데이트)
+    gameInterval = setInterval(() => {
+        if (isGameOver) return;
+
+        // 장애물 생성 (500ms 마다)
+        if (Math.random() < 0.05) { // 확률적으로 생성
+            createObstacle();
+        }
+
+        // 장애물 이동 및 충돌 감지
+        moveObstacles();
+    }, 20);
+}
+
+// 장애물 생성 함수
+function createObstacle() {
+    const obstacle = document.createElement('div');
+    obstacle.classList.add('obstacle');
+    obstacle.textContent = '💩';
+    // 장애물 초기 x 위치를 랜덤으로 설정
+    obstacle.style.left = Math.random() * (gameWidth - 30) + 'px';
+    gameContainer.appendChild(obstacle);
+}
+
+// 장애물 이동 및 관리 함수
+function moveObstacles() {
+    const obstacles = document.querySelectorAll('.obstacle');
+    obstacles.forEach(obstacle => {
+        let obstacleTop = parseInt(obstacle.style.top || 0);
+        obstacleTop += 5; // 장애물 떨어지는 속도
+        obstacle.style.top = obstacleTop + 'px';
+
+        // 화면 밖으로 나간 장애물 처리
+        if (obstacleTop > gameContainer.offsetHeight) {
+            obstacle.remove();
+            score++; // 장애물을 피하면 점수 획득
+            scoreDisplay.textContent = `점수: ${score}`;
+        }
+        
+        // 충돌 감지
+        if (isColliding(player, obstacle)) {
+            endGame();
+        }
+    });
+}
+
+// 충돌 감지 함수
+function isColliding(element1, element2) {
+    const rect1 = element1.getBoundingClientRect();
+    const rect2 = element2.getBoundingClientRect();
+    return !(
+        rect1.right < rect2.left ||
+        rect1.left > rect2.right ||
+        rect1.bottom < rect2.top ||
+        rect1.top > rect2.bottom
+    );
+}
+
+// 게임 종료 함수
+function endGame() {
+    isGameOver = true;
+    clearInterval(gameInterval); // 게임 루프 정지
+    gameOverDisplay.classList.remove('hidden');
+}
+
+// 키보드 이벤트 리스너 (플레이어 이동)
+document.addEventListener('keydown', (e) => {
+    if (isGameOver) return;
+
+    const playerSpeed = 20; // 플레이어 이동 속도
+
+    if (e.key === 'ArrowLeft') {
+        playerPosition -= playerSpeed;
+    } else if (e.key === 'ArrowRight') {
+        playerPosition += playerSpeed;
+    }
+
+    // 플레이어가 화면 밖으로 나가지 않도록 제한
+    if (playerPosition < 0) {
+        playerPosition = 0;
+    }
+    if (playerPosition > gameWidth - playerWidth) {
+        playerPosition = gameWidth - playerWidth;
+    }
+
+    player.style.left = playerPosition + 'px';
+});
+
+// 다시 시작 버튼 이벤트 리스너
+restartButton.addEventListener('click', startGame);
+
+// 게임 최초 시작
+startGame();
