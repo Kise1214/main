@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>공룡 게임</title>
+    <style>
+        #game-container {
+            width: 600px;
+            height: 200px;
+            border: 1px solid black;
+            position: relative;
+            overflow: hidden;
+            background-color: lightblue;
+        }
+
+        #dinosaur {
+            width: 50px;
+            height: 50px;
+            background-color: green;
+            position: absolute;
+            bottom: 0;
+            left: 50px;
+        }
+
+        #obstacles {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .obstacle {
+            width: 30px;
+            height: 50px;
+            background-color: brown;
+            position: absolute;
+            left: 600px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="dinosaur"></div>
+        <div id="obstacles"></div>
+    </div>
+
+    <script>
+        const dinosaur = document.getElementById('dinosaur');
+        const obstaclesContainer = document.getElementById('obstacles');
+        let dinosaurY = 0;
+        let obstacleSpeed = 3;
+        let score = 0;
+        let isJumping = false;
+
+        // 공룡 점프 (더 자연스러운 움직임)
+        function jump() {
+            if (!isJumping) {
+                isJumping = true;
+                dinosaurY = 150;
+                dinosaur.style.bottom = dinosaurY + 'px';
+
+                // 점프 곡선 효과
+                let jumpInterval = setInterval(() => {
+                    dinosaurY -= 5;
+                    dinosaur.style.bottom = dinosaurY + 'px';
+
+                    if (dinosaurY <= 0) {
+                        clearInterval(jumpInterval);
+                        dinosaurY = 0;
+                        dinosaur.style.bottom = dinosaurY + 'px';
+                        isJumping = false;
+                    }
+                }, 20);
+            }
+        }
+
+        // 장애물 생성
+        function createObstacle() {
+            const obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle');
+            obstacle.style.left = '600px';
+            obstacle.style.bottom = '0';
+            obstaclesContainer.appendChild(obstacle);
+
+            // 장애물 이동
+            let obstacleX = 600;
+            const intervalId = setInterval(() => {
+                obstacleX -= obstacleSpeed;
+                obstacle.style.left = obstacleX + 'px';
+
+                // 충돌 감지 (더 정확한 충돌 감지)
+                if (obstacleX < 80 && obstacleX + 30 > 50 && dinosaurY === 0) {
+                    clearInterval(intervalId);
+                    alert('게임 오버! 점수: ' + score);
+                    // 게임 재시작 로직 추가 가능
+                    location.reload(); // 페이지 새로고침으로 게임 재시작
+                }
+
+                // 장애물 삭제
+                if (obstacleX < -30) {
+                    clearInterval(intervalId);
+                    obstacle.remove();
+                    score++;
+                }
+            }, 20);
+        }
+
+        // 게임 시작
+        setInterval(createObstacle, 1500);
+
+        // 점프 이벤트
+        document.addEventListener('keydown', (event) => {
+            if (event.key === ' ') {
+                jump();
+            }
+        });
+    </script>
+</body>
+</html>
