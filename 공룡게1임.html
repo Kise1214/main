@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Dino Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: #f7f7f7;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        #sky {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: linear-gradient(to bottom, #87CEEB, #E0F7FA);
+        }
+        
+        #ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+            background: #555;
+        }
+        
+        #dino {
+            position: absolute;
+            bottom: 60px;
+            left: 100px;
+            width: 60px;
+            height: 60px;
+            font-size: 50px;
+            line-height: 60px;
+            text-align: center;
+            z-index: 10;
+            transition: bottom 0.3s;
+        }
+        
+        .obstacle {
+            position: absolute;
+            bottom: 60px;
+            right: 0;
+            width: 40px;
+            height: 60px;
+            font-size: 40px;
+            line-height: 60px;
+            text-align: center;
+            z-index: 5;
+        }
+        
+        #score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            z-index: 20;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 36px;
+            display: none;
+            z-index: 30;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        #restart-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+        }
+        
+        #restart-btn:hover {
+            background: #45a049;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+        }
+        
+        #restart-btn:active {
+            transform: translateY(1px);
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 16px;
+            text-align: center;
+            z-index: 20;
+        }
+        
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.8;
+            z-index: 1;
+        }
+        
+        .cloud-1 {
+            width: 120px;
+            height: 40px;
+            top: 80px;
+            left: 50px;
+        }
+        
+        .cloud-2 {
+            width: 90px;
+            height: 30px;
+            top: 150px;
+            left: 200px;
+        }
+        
+        .cloud-3 {
+            width: 100px;
+            height: 35px;
+            top: 50px;
+            left: 300px;
+        }
+        
+        .cloud::before, .cloud::after {
+            content: "";
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+        
+        .cloud::before {
+            width: 40px;
+            height: 40px;
+            top: -20px;
+            left: 20px;
+        }
+        
+        .cloud::after {
+            width: 50px;
+            height: 50px;
+            top: -25px;
+            right: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="sky"></div>
+        <div id="ground"></div>
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="cloud cloud-3"></div>
+        <div id="dino">🦖</div>
+        <div id="score">0</div>
+        <div id="game-over">
+            <div>게임 오버!</div>
+            <button id="restart-btn">재시작</button>
+        </div>
+        <div id="instructions">SPACE 키를 눌러 도망쳐!</div>
+    </div>
+
+    <script>
+        // 게임 요소
+        const gameContainer = document.getElementById('game-container');
+        const dino = document.getElementById('dino');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverDisplay = document.getElementById('game-over');
+        const restartBtn = document.getElementById('restart-btn');
+        const instructions = document.getElementById('instructions');
+        
+        // 게임 변수
+        let gameSpeed = 5;
+        let score = 0;
+        let isJumping = false;
+        let gameOver = false;
+        let obstacles = [];
+        let nextObstacle = 0;
+        let frameCount = 0;
+        let animationId;
+        let clouds = [];
+        
+        // 게임 초기화
+        function init() {
+            gameOver = false;
+            score = 0;
+            frameCount = 0;
+            isJumping = false;
+            obstacles = [];
+            nextObstacle = 100;
+            dino.style.bottom = '60px';
+            scoreDisplay.textContent = '0';
+            gameOverDisplay.style.display = 'none';
+            instructions.style.display = 'block';
+            
+            // 구름 생성
+            createClouds();
+            
+            // 게임 루프 시작
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        // 구름 생성
+        function createClouds() {
+            clouds = [];
+            const cloudPositions = [
+                { top: 80, left: 50, size: 120 },
+                { top: 150, left: 200, size: 90 },
+                { top: 50, left: 300, size: 100 }
+            ];
+            
+            cloudPositions.forEach(pos => {
+                const cloud = document.createElement('div');
+                cloud.classList.add('cloud');
+                cloud.style.width = `${pos.size}px`;
+                cloud.style.height = `${pos.size * 0.33}px`;
+                cloud.style.top = `${pos.top}px`;
+                cloud.style.left = `${pos.left}px`;
+                gameContainer.appendChild(cloud);
+                clouds.push(cloud);
+            });
+        }
+        
+        // 구름 이동
+        function moveClouds() {
+            clouds.forEach(cloud => {
+                const currentLeft = parseInt(cloud.style.left);
+                cloud.style.left = `${currentLeft - 0.5}px`;
+                
+                // 구름이 화면 밖으로 나갔을 때 재배치
+                if (currentLeft < -parseInt(cloud.style.width)) {
+                    cloud.style.left = '800px';
+                }
+            });
+        }
+        
+        // 장애물 생성
+        function createObstacle() {
+            const obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle');
+            obstacle.textContent = '🌵';
+            obstacle.style.right = '0';
+            obstacle.style.bottom = '60px';
+            gameContainer.appendChild(obstacle);
+            obstacles.push(obstacle);
+        }
+        
+        // 게임 루프
+        function gameLoop() {
+            if (gameOver) return;
+            
+            frameCount++;
+            
+            // 점수 업데이트 (1초에 60점 정도)
+            if (frameCount % 2 === 0) {
+                score += 1;
+                scoreDisplay.textContent = score;
+            }
+            
+            // 구름 이동
+            moveClouds();
+            
+            // 장애물 생성
+            nextObstacle--;
+            if (nextObstacle <= 0) {
+                createObstacle();
+                // 다음 장애물까지의 시간 (100-300 프레임)
+                nextObstacle = 100 + Math.random() * 200;
+            }
+            
+            // 장애물 이동 및 충돌 체크
+            for (let i = 0; i < obstacles.length; i++) {
+                const obstacle = obstacles[i];
+                const obstacleRight = parseInt(obstacle.style.right);
+                obstacle.style.right = `${obstacleRight + gameSpeed}px`;
+                
+                // 충돌 감지
+                const dinoRect = dino.getBoundingClientRect();
+                const obstacleRect = obstacle.getBoundingClientRect();
+                const gameContainerRect = gameContainer.getBoundingClientRect();
+                
+                // 장애물이 화면 밖으로 나갔을 때 제거
+                if (obstacleRight > gameContainerRect.width) {
+                    obstacle.remove();
+                    obstacles.splice(i, 1);
+                    i--;
+                    continue;
+                }
+                
+                // 충돌 체크
+                if (
+                    dinoRect.bottom >= obstacleRect.top + gameContainerRect.top &&
+                    dinoRect.top <= obstacleRect.bottom + gameContainerRect.top &&
+                    dinoRect.right >= obstacleRect.left + gameContainerRect.left &&
+                    dinoRect.left <= obstacleRect.right + gameContainerRect.left
+                ) {
+                    endGame();
+                }
+            }
+            
+            // 게임 루프 계속
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        // 게임 종료
+        function endGame() {
+            gameOver = true;
+            gameOverDisplay.style.display = 'block';
+            instructions.style.display = 'none';
+            cancelAnimationFrame(animationId);
+        }
+        
+        // 공룡 점프
+        function jump() {
+            if (!isJumping) {
+                isJumping = true;
+                dino.style.bottom = '160px';
+                
+                setTimeout(() => {
+                    dino.style.bottom = '60px';
+                    isJumping = false;
+                }, 600);
+            }
+        }
+        
+        // 이벤트 리스너
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameOver) {
+                    init();
+                } else {
+                    jump();
+                }
+            }
+        });
+        
+        restartBtn.addEventListener('click', init);
+        
+        // 게임 시작
+        window.onload = init;
+    </script>
+</body>
+</html>
