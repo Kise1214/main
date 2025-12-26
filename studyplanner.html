@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Study Planner</title>
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+      --primary: #1e88e5;
+      --border: #cccccc;
+    }
+
+    body.dark {
+      --bg: #121212;
+      --text: #ffffff;
+      --border: #444444;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    input {
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    section {
+      border: 1px solid var(--border);
+      padding: 15px;
+      border-radius: 10px;
+      background: var(--bg);
+    }
+
+    #calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .day {
+      border: 1px solid var(--border);
+      padding: 12px 0;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 6px;
+      min-height: 44px; /* 터치 최소 높이 */
+    }
+
+    .day:hover {
+      background: rgba(30,136,229,0.15);
+    }
+
+    #todo-list li {
+      cursor: pointer;
+      margin: 8px 0;
+      line-height: 1.4;
+    }
+
+    #login-box {
+      max-width: 320px;
+      margin: 120px auto;
+      text-align: center;
+      border: 1px solid var(--border);
+      padding: 25px;
+      border-radius: 12px;
+    }
+
+    /* 📱 모바일 최적화 */
+    @media (max-width: 768px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 12px;
+      }
+
+      header h2 {
+        font-size: 18px;
+      }
+
+      button {
+        padding: 10px 16px;
+        font-size: 15px;
+      }
+
+      input {
+        width: 100%;
+        margin-bottom: 8px;
+        font-size: 15px;
+      }
+
+      #calendar {
+        gap: 4px;
+      }
+
+      .day {
+        padding: 10px 0;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 로그인 -->
+  <div id="login-box">
+    <h2>📘 Study Planner</h2>
+    <input type="text" id="username" placeholder="이름 입력" />
+    <br><br>
+    <button onclick="login()">로그인</button>
+  </div>
+
+  <!-- 앱 -->
+  <div id="app" class="hidden">
+    <header>
+      <h2>📘 Study Planner</h2>
+      <div>
+        <button onclick="toggleDarkMode()">🌙</button>
+        <button onclick="logout()">로그아웃</button>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h3>📅 캘린더</h3>
+        <div id="calendar"></div>
+      </section>
+
+      <section>
+        <h3>✅ 오늘 할 일</h3>
+        <input id="todo-input" placeholder="할 일 입력" />
+        <button onclick="addTodo()">추가</button>
+        <ul id="todo-list"></ul>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const loginBox = document.getElementById("login-box");
+    const app = document.getElementById("app");
+
+    function login() {
+      const name = document.getElementById("username").value;
+      if (!name) return alert("이름 입력해");
+      localStorage.setItem("user", name);
+      startApp();
+    }
+
+    function logout() {
+      localStorage.clear();
+      location.reload();
+    }
+
+    function startApp() {
+      loginBox.classList.add("hidden");
+      app.classList.remove("hidden");
+    }
+
+    if (localStorage.getItem("user")) startApp();
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+      localStorage.setItem(
+        "dark",
+        document.body.classList.contains("dark")
+      );
+    }
+
+    if (localStorage.getItem("dark") === "true") {
+      document.body.classList.add("dark");
+    }
+
+    /* 캘린더 */
+    const calendar = document.getElementById("calendar");
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    function drawCalendar() {
+      calendar.innerHTML = "";
+      const lastDay = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 1; i <= lastDay; i++) {
+        const div = document.createElement("div");
+        div.className = "day";
+        div.innerText = i;
+
+        const key = `schedule-${year}-${month}-${i}`;
+        if (localStorage.getItem(key)) {
+          div.style.background = "rgba(30,136,229,0.25)";
+        }
+
+        div.onclick = () => addSchedule(i);
+        calendar.appendChild(div);
+      }
+    }
+
+    function addSchedule(day) {
+      const key = `schedule-${year}-${month}-${day}`;
+      const existing = localStorage.getItem(key) || "";
+      const text = prompt(`${month + 1}/${day} 일정`, existing);
+      if (text === null) return;
+
+      if (text === "") localStorage.removeItem(key);
+      else localStorage.setItem(key, text);
+
+      drawCalendar();
+    }
+
+    drawCalendar();
+
+    /* To-do */
+    const todoList = document.getElementById("todo-list");
+
+    function loadTodos() {
+      todoList.innerHTML = "";
+      const todos = JSON.parse(localStorage.getItem("todos") || "[]");
+
+      todos.forEach((todo, i) => {
+        const li = document.createElement("li");
+        li.innerText = "• " + todo;
+        li.onclick = () => deleteTodo(i);
+        todoList.appendChild(li);
+      });
+    }
+
+    function addTodo() {
+      const input = document.getElementById("todo-input");
+      if (!input.value) return;
+
+      const todos = JSON.parse(localStorage.getItem("todos") || "[]");
+      todos.push(input.value);
+      localStorage.setItem("todos", JSON.stringify(todos));
+      input.value = "";
+      loadTodos();
+    }
+
+    function deleteTodo(index) {
+      const todos = JSON.parse(localStorage.getItem("todos"));
+      todos.splice(index, 1);
+      localStorage.setItem("todos", JSON.stringify(todos));
+      loadTodos();
+    }
+
+    loadTodos();
+  </script>
+</body>
+</html>
