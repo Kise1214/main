@@ -1,64 +1,206 @@
-document.addEventListener('DOMContentLoaded', () => {
-  calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-    initialView: 'dayGridMonth',
-    height: 'auto',
-    initialDate: today,
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: ''
-    },
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 스마트 스터디 플래너</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600&display=swap" rel="stylesheet">
 
-    dateClick(info) {
-      const title = prompt('일정 제목 입력');
-      if (!title) return;
-
-      db.collection('events').add({
-        title: title,
-        date: info.dateStr,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    },
-
-    eventClick(info) {
-      const action = prompt(
-        `1: 수정\n2: 삭제\n(숫자 입력)`
-      );
-
-      if (action === '1') {
-        const newTitle = prompt('새 일정 제목', info.event.title);
-        if (newTitle) {
-          db.collection('events')
-            .doc(info.event.id)
-            .update({ title: newTitle });
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --container-bg: #ffffff;
+            --text-color: #333;
+            --primary-color: #4a90e2;
+            --border-color: #ddd;
         }
-      }
 
-      if (action === '2') {
-        if (confirm('정말 삭제할까?')) {
-          db.collection('events')
-            .doc(info.event.id)
-            .delete();
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --container-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --primary-color: #3778c2;
+            --border-color: #444;
         }
-      }
-    }
-  });
 
-  calendar.render();
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
 
-  // 🔥 실시간 반영 핵심
-  db.collection('events')
-    .orderBy('date')
-    .onSnapshot(snapshot => {
-      calendar.removeAllEvents();
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--container-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
 
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        calendar.addEvent({
-          id: doc.id,
-          title: data.title,
-          start: data.date
-        });
-      });
-    });
-});
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-theme { background: var(--primary-color); color: white; }
+        .btn-login { background: #555; color: white; }
+
+        /* 로그인 영역 */
+        #login-section {
+            text-align: center;
+            padding: 50px 0;
+        }
+
+        #main-content { display: none; }
+
+        /* 달력 스타일 커스텀 */
+        #calendar {
+            margin-top: 20px;
+            height: 600px;
+        }
+
+        .fc-toolbar-title { font-size: 1.2em !important; }
+        .fc-event { cursor: pointer; }
+
+        /* 입력 폼 */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--container-bg);
+            color: var(--text-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-section" class="container">
+        <h2>스터디 플래너 로그인</h2>
+        <p>아이디와 비밀번호를 입력하세요 (아무거나 입력 가능)</p>
+        <input type="text" id="username" placeholder="아이디"><br><br>
+        <input type="password" id="password" placeholder="비밀번호"><br><br>
+        <button class="btn btn-theme" onclick="handleLogin()">로그인</button>
+    </div>
+
+    <div id="main-content" class="container">
+        <header>
+            <h2>My Study Planner</h2>
+            <div>
+                <button class="btn btn-theme" onclick="toggleDarkMode()">다크 모드 전환</button>
+                <button class="btn btn-login" onclick="handleLogout()">로그아웃</button>
+            </div>
+        </header>
+
+        <div class="input-group">
+            <input type="text" id="eventTitle" placeholder="공부할 내용 (예: 수학 문제집)">
+            <input type="date" id="eventDate">
+            <button class="btn btn-theme" onclick="addEvent()">일정 추가</button>
+        </div>
+
+        <div id="calendar"></div>
+    </div>
+
+    <script>
+        let calendar;
+        let events = JSON.parse(localStorage.getItem('studyEvents')) || [];
+
+        // --- 로그인 시스템 ---
+        function handleLogin() {
+            const user = document.getElementById('username').value;
+            if(user) {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                initCalendar();
+            } else {
+                alert("아이디를 입력해주세요.");
+            }
+        }
+
+        function handleLogout() {
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('main-content').style.display = 'none';
+        }
+
+        // --- 다크 모드 ---
+        function toggleDarkMode() {
+            const body = document.body;
+            const theme = body.getAttribute('data-theme');
+            if (theme === 'dark') {
+                body.removeAttribute('data-theme');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+            }
+        }
+
+        // --- 달력 초기화 및 기능 ---
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ko',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek'
+                },
+                events: events,
+                eventClick: function(info) {
+                    if(confirm("이 일정을 삭제할까요?")) {
+                        info.event.remove();
+                        events = events.filter(e => e.title !== info.event.title || e.start !== info.event.startStr);
+                        saveEvents();
+                    }
+                }
+            });
+            calendar.render();
+        }
+
+        // 일정 추가
+        function addEvent() {
+            const title = document.getElementById('eventTitle').value;
+            const date = document.getElementById('eventDate').value;
+
+            if (title && date) {
+                const newEvent = { title: title, start: date, allDay: true };
+                calendar.addEvent(newEvent);
+                events.push(newEvent);
+                saveEvents();
+                
+                // 입력창 초기화
+                document.getElementById('eventTitle').value = '';
+                document.getElementById('eventDate').value = '';
+            } else {
+                alert("내용과 날짜를 입력해주세요!");
+            }
+        }
+
+        // 로컬 스토리지 저장
+        function saveEvents() {
+            localStorage.setItem('studyEvents', JSON.stringify(events));
+        }
+    </script>
+</body>
+</html>
