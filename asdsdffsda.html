@@ -1,289 +1,210 @@
+<!-- ⚠️ 전체 코드라 길어도 그대로 사용 -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Study Planner</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Study Planner</title>
 
-  <style>
-    :root {
-      --bg: #ffffff;
-      --text: #000000;
-      --primary: #1e88e5;
-      --border: #cccccc;
-    }
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-    body.dark {
-      --bg: #121212;
-      --text: #ffffff;
-      --border: #444444;
-    }
+<style>
+:root {
+  --primary:#1e88e5; --bg:#fff; --text:#000; --border:#ccc;
+}
+body.dark { --bg:#121212; --text:#fff; --border:#444; }
+body { margin:0; font-family:Arial; background:var(--bg); color:var(--text); }
 
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    header {
-      background: var(--primary);
-      color: white;
-      padding: 12px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      cursor: pointer;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-
-    input {
-      padding: 8px;
-      font-size: 14px;
-      border-radius: 5px;
-      border: 1px solid var(--border);
-    }
-
-    main {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      padding: 20px;
-    }
-
-    section {
-      border: 1px solid var(--border);
-      padding: 15px;
-      border-radius: 10px;
-      background: var(--bg);
-    }
-
-    #calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
-    }
-
-    .day {
-      border: 1px solid var(--border);
-      padding: 12px 0;
-      text-align: center;
-      cursor: pointer;
-      border-radius: 6px;
-      min-height: 44px; /* 터치 최소 높이 */
-    }
-
-    .day:hover {
-      background: rgba(30,136,229,0.15);
-    }
-
-    #todo-list li {
-      cursor: pointer;
-      margin: 8px 0;
-      line-height: 1.4;
-    }
-
-    #login-box {
-      max-width: 320px;
-      margin: 120px auto;
-      text-align: center;
-      border: 1px solid var(--border);
-      padding: 25px;
-      border-radius: 12px;
-    }
-
-    /* 📱 모바일 최적화 */
-    @media (max-width: 768px) {
-      main {
-        grid-template-columns: 1fr;
-        padding: 12px;
-      }
-
-      header h2 {
-        font-size: 18px;
-      }
-
-      button {
-        padding: 10px 16px;
-        font-size: 15px;
-      }
-
-      input {
-        width: 100%;
-        margin-bottom: 8px;
-        font-size: 15px;
-      }
-
-      #calendar {
-        gap: 4px;
-      }
-
-      .day {
-        padding: 10px 0;
-        font-size: 14px;
-      }
-    }
-  </style>
+.hidden{display:none}
+header{background:var(--primary);color:#fff;padding:12px;display:flex;justify-content:space-between}
+#calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{border:1px solid var(--border);padding:6px;min-height:80px;border-radius:6px;position:relative}
+.today{border:2px solid var(--primary)}
+.dot{width:6px;height:6px;background:var(--primary);border-radius:50%;position:absolute;bottom:6px;left:50%;transform:translateX(-50%)}
+.icon{cursor:pointer;margin-left:6px}
+.schedule-item, .todo-item{display:flex;justify-content:space-between;margin:6px 0}
+</style>
 </head>
 
 <body>
 
-  <!-- 로그인 -->
-  <div id="login-box">
-    <h2>📘 Study Planner</h2>
-    <input type="text" id="username" placeholder="이름 입력" />
-    <br><br>
-    <button onclick="login()">로그인</button>
+<header>
+  <div>📘 Study Planner</div>
+  <div>
+    <button onclick="toggleDark()">🌙</button>
+    <button onclick="logout()">로그아웃</button>
   </div>
+</header>
 
-  <!-- 앱 -->
-  <div id="app" class="hidden">
-    <header>
-      <h2>📘 Study Planner</h2>
-      <div>
-        <button onclick="toggleDarkMode()">🌙</button>
-        <button onclick="logout()">로그아웃</button>
-      </div>
-    </header>
+<main style="padding:15px">
+  <button id="loginBtn">Google 로그인</button>
 
-    <main>
-      <section>
-        <h3>📅 캘린더</h3>
-        <div id="calendar"></div>
-      </section>
+  <h3>📅 캘린더</h3>
+  <div id="calendar"></div>
 
-      <section>
-        <h3>✅ 오늘 할 일</h3>
-        <input id="todo-input" placeholder="할 일 입력" />
-        <button onclick="addTodo()">추가</button>
-        <ul id="todo-list"></ul>
-      </section>
-    </main>
-  </div>
+  <h3>📌 선택한 날짜 일정</h3>
+  <div id="scheduleList"></div>
 
-  <script>
-    const loginBox = document.getElementById("login-box");
-    const app = document.getElementById("app");
+  <h3>✅ 오늘 할 일</h3>
+  <input id="todoInput" placeholder="할 일 입력" />
+  <button onclick="addTodo()">➕</button>
+  <div id="todoList"></div>
 
-    function login() {
-      const name = document.getElementById("username").value;
-      if (!name) return alert("이름 입력해");
-      localStorage.setItem("user", name);
-      startApp();
-    }
+  <h3>⏱ 공부 시간</h3>
+  <button onclick="startStudy()">▶️ 시작</button>
+  <button onclick="stopStudy()">⏹ 종료</button>
+  <div id="studyTime"></div>
+</main>
 
-    function logout() {
-      localStorage.clear();
-      location.reload();
-    }
+<script>
+/* Firebase */
+const firebaseConfig = {
+  apiKey: "여기에",
+  authDomain: "여기에",
+  projectId: "여기에"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-    function startApp() {
-      loginBox.classList.add("hidden");
-      app.classList.remove("hidden");
-    }
-
-    if (localStorage.getItem("user")) startApp();
-
-    function toggleDarkMode() {
-      document.body.classList.toggle("dark");
-      localStorage.setItem(
-        "dark",
-        document.body.classList.contains("dark")
-      );
-    }
-
-    if (localStorage.getItem("dark") === "true") {
-      document.body.classList.add("dark");
-    }
-
-    /* 캘린더 */
-    const calendar = document.getElementById("calendar");
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-
-    function drawCalendar() {
-      calendar.innerHTML = "";
-      const lastDay = new Date(year, month + 1, 0).getDate();
-
-      for (let i = 1; i <= lastDay; i++) {
-        const div = document.createElement("div");
-        div.className = "day";
-        div.innerText = i;
-
-        const key = `schedule-${year}-${month}-${i}`;
-        if (localStorage.getItem(key)) {
-          div.style.background = "rgba(30,136,229,0.25)";
-        }
-
-        div.onclick = () => addSchedule(i);
-        calendar.appendChild(div);
-      }
-    }
-
-    function addSchedule(day) {
-      const key = `schedule-${year}-${month}-${day}`;
-      const existing = localStorage.getItem(key) || "";
-      const text = prompt(`${month + 1}/${day} 일정`, existing);
-      if (text === null) return;
-
-      if (text === "") localStorage.removeItem(key);
-      else localStorage.setItem(key, text);
-
-      drawCalendar();
-    }
-
+let user;
+auth.onAuthStateChanged(u=>{
+  user=u;
+  if(u){
+    loginBtn.classList.add("hidden");
     drawCalendar();
-
-    /* To-do */
-    const todoList = document.getElementById("todo-list");
-
-    function loadTodos() {
-      todoList.innerHTML = "";
-      const todos = JSON.parse(localStorage.getItem("todos") || "[]");
-
-      todos.forEach((todo, i) => {
-        const li = document.createElement("li");
-        li.innerText = "• " + todo;
-        li.onclick = () => deleteTodo(i);
-        todoList.appendChild(li);
-      });
-    }
-
-    function addTodo() {
-      const input = document.getElementById("todo-input");
-      if (!input.value) return;
-
-      const todos = JSON.parse(localStorage.getItem("todos") || "[]");
-      todos.push(input.value);
-      localStorage.setItem("todos", JSON.stringify(todos));
-      input.value = "";
-      loadTodos();
-    }
-
-    function deleteTodo(index) {
-      const todos = JSON.parse(localStorage.getItem("todos"));
-      todos.splice(index, 1);
-      localStorage.setItem("todos", JSON.stringify(todos));
-      loadTodos();
-    }
-
     loadTodos();
-  </script>
+    loadStudyTime();
+  }
+});
+
+/* 로그인 */
+loginBtn.onclick=()=>auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+function logout(){auth.signOut()}
+function toggleDark(){document.body.classList.toggle("dark")}
+
+/* 날짜 */
+const today=new Date();
+const todayStr=today.toISOString().split("T")[0];
+let selectedDate=todayStr;
+
+/* 📅 캘린더 */
+async function drawCalendar(){
+  calendar.innerHTML="";
+  const last=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
+  const snap=await db.collection("schedules").where("uid","==",user.uid).get();
+  const dates=snap.docs.map(d=>d.data().date);
+
+  for(let i=1;i<=last;i++){
+    const dateStr=`${today.getFullYear()}-${today.getMonth()+1}-${i}`;
+    const d=document.createElement("div");
+    d.className="day";
+    if(dateStr===todayStr)d.classList.add("today");
+    d.innerHTML=`<b>${i}</b> <span class="icon" onclick="addSchedule('${dateStr}')">➕</span>`;
+    d.onclick=()=>loadSchedules(dateStr);
+    if(dates.includes(dateStr)){
+      const dot=document.createElement("div");
+      dot.className="dot";
+      d.appendChild(dot);
+    }
+    calendar.appendChild(d);
+  }
+  loadSchedules(selectedDate);
+}
+
+function addSchedule(date){
+  const text=prompt("일정 입력");
+  if(!text)return;
+  db.collection("schedules").add({uid:user.uid,date,text}).then(drawCalendar);
+}
+
+async function loadSchedules(date){
+  selectedDate=date;
+  scheduleList.innerHTML="";
+  const snap=await db.collection("schedules")
+    .where("uid","==",user.uid)
+    .where("date","==",date)
+    .get();
+
+  snap.forEach(doc=>{
+    const div=document.createElement("div");
+    div.className="schedule-item";
+    div.innerHTML=`
+      ${doc.data().text}
+      <span>
+        <span class="icon" onclick="editSchedule('${doc.id}','${doc.data().text}')">✏️</span>
+        <span class="icon" onclick="deleteSchedule('${doc.id}')">❌</span>
+      </span>
+    `;
+    scheduleList.appendChild(div);
+  });
+}
+
+function editSchedule(id,oldText){
+  const text=prompt("수정",oldText);
+  if(!text)return;
+  db.collection("schedules").doc(id).update({text}).then(drawCalendar);
+}
+function deleteSchedule(id){
+  db.collection("schedules").doc(id).delete().then(drawCalendar);
+}
+
+/* ✅ Todo */
+async function loadTodos(){
+  todoList.innerHTML="";
+  const snap=await db.collection("todos").where("uid","==",user.uid).get();
+  snap.forEach(doc=>{
+    const div=document.createElement("div");
+    div.className="todo-item";
+    div.innerHTML=`${doc.data().text}<span class="icon" onclick="deleteTodo('${doc.id}')">❌</span>`;
+    todoList.appendChild(div);
+  });
+}
+function addTodo(){
+  const v=todoInput.value;
+  if(!v)return;
+  db.collection("todos").add({uid:user.uid,text:v});
+  db.collection("schedules").add({uid:user.uid,date:todayStr,text:v}).then(drawCalendar);
+  todoInput.value="";
+  loadTodos();
+}
+function deleteTodo(id){
+  db.collection("todos").doc(id).delete().then(loadTodos);
+}
+
+/* ⏱ 공부 시간 */
+let startTime=null;
+
+function startStudy(){
+  startTime=Date.now();
+  alert("공부 시작!");
+}
+async function stopStudy(){
+  if(!startTime)return;
+  const minutes=Math.floor((Date.now()-startTime)/60000);
+  startTime=null;
+
+  const ref=db.collection("studyTime").doc(`${user.uid}_${todayStr}`);
+  const doc=await ref.get();
+
+  if(doc.exists){
+    ref.update({minutes:doc.data().minutes+minutes});
+  }else{
+    ref.set({uid:user.uid,date:todayStr,minutes});
+  }
+  loadStudyTime();
+}
+
+async function loadStudyTime(){
+  const ref=db.collection("studyTime").doc(`${user.uid}_${todayStr}`);
+  const doc=await ref.get();
+  studyTime.innerText=doc.exists
+    ? `오늘 공부 시간: ${doc.data().minutes}분`
+    : "오늘 공부 기록 없음";
+}
+</script>
+
 </body>
 </html>
