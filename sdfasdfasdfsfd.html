@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 스마트 스터디 플래너</title>
+    <title>AI 스마트 스터디 플래너 & 타이머</title>
     
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600&display=swap" rel="stylesheet">
@@ -14,6 +14,7 @@
             --container-bg: #ffffff;
             --text-color: #333;
             --primary-color: #4a90e2;
+            --accent-color: #ff6b6b;
             --border-color: #ddd;
         }
 
@@ -22,6 +23,7 @@
             --container-bg: #2d2d2d;
             --text-color: #e0e0e0;
             --primary-color: #3778c2;
+            --accent-color: #ee5253;
             --border-color: #444;
         }
 
@@ -29,146 +31,186 @@
             font-family: 'Pretendard', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
-            margin: 0;
-            padding: 20px;
+            margin: 0; padding: 20px;
             transition: all 0.3s ease;
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
             background: var(--container-bg);
-            padding: 20px;
+            padding: 25px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 
-        .btn {
-            padding: 8px 15px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
         .btn-theme { background: var(--primary-color); color: white; }
-        .btn-login { background: #555; color: white; }
+        .btn-stopwatch { background: var(--accent-color); color: white; }
+        .btn:hover { opacity: 0.8; }
 
-        /* 로그인 영역 */
-        #login-section {
+        /* 타이머 영역 */
+        .timer-section {
+            background: var(--bg-color);
+            padding: 20px;
+            border-radius: 10px;
             text-align: center;
-            padding: 50px 0;
-        }
-
-        #main-content { display: none; }
-
-        /* 달력 스타일 커스텀 */
-        #calendar {
-            margin-top: 20px;
-            height: 600px;
-        }
-
-        .fc-toolbar-title { font-size: 1.2em !important; }
-        .fc-event { cursor: pointer; }
-
-        /* 입력 폼 */
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        input {
-            padding: 10px;
+            margin-bottom: 25px;
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background: var(--container-bg);
-            color: var(--text-color);
         }
+
+        #timer-display {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+
+        /* 레이아웃 분리 */
+        .planner-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+
+        @media (max-width: 850px) {
+            .planner-grid { grid-template-columns: 1fr; }
+        }
+
+        #calendar { height: 600px; }
+        
+        input {
+            padding: 10px; border: 1px solid var(--border-color); border-radius: 4px;
+            background: var(--container-bg); color: var(--text-color); margin-bottom: 5px;
+        }
+
+        #login-section { text-align: center; padding: 100px 0; }
+        #main-content { display: none; }
     </style>
 </head>
 <body>
 
     <div id="login-section" class="container">
-        <h2>스터디 플래너 로그인</h2>
-        <p>아이디와 비밀번호를 입력하세요 (아무거나 입력 가능)</p>
-        <input type="text" id="username" placeholder="아이디"><br><br>
-        <input type="password" id="password" placeholder="비밀번호"><br><br>
+        <h2>스터디 플래너 시작하기</h2>
+        <input type="text" id="username" placeholder="사용자 이름"><br><br>
         <button class="btn btn-theme" onclick="handleLogin()">로그인</button>
     </div>
 
     <div id="main-content" class="container">
         <header>
-            <h2>My Study Planner</h2>
+            <h2>📚 Study Planner</h2>
             <div>
-                <button class="btn btn-theme" onclick="toggleDarkMode()">다크 모드 전환</button>
-                <button class="btn btn-login" onclick="handleLogout()">로그아웃</button>
+                <button class="btn btn-theme" onclick="toggleDarkMode()">다크 모드</button>
+                <button class="btn" style="background:#666; color:white;" onclick="location.reload()">로그아웃</button>
             </div>
         </header>
 
-        <div class="input-group">
-            <input type="text" id="eventTitle" placeholder="공부할 내용 (예: 수학 문제집)">
-            <input type="date" id="eventDate">
-            <button class="btn btn-theme" onclick="addEvent()">일정 추가</button>
+        <div class="timer-section">
+            <h3>⏱ 공부 집중 타이머</h3>
+            <div id="timer-display">00:00:00</div>
+            <button class="btn btn-theme" id="startBtn" onclick="startTimer()">시작</button>
+            <button class="btn" style="background:#888; color:white;" onclick="stopTimer()">정지</button>
+            <button class="btn btn-stopwatch" onclick="recordStudyTime()">기록 후 달력에 저장</button>
         </div>
 
-        <div id="calendar"></div>
+        <div class="planner-grid">
+            <div id="calendar"></div>
+
+            <div class="side-menu">
+                <h3>일정 직접 추가</h3>
+                <input type="text" id="eventTitle" placeholder="과목 또는 할 일" style="width:90%"><br>
+                <input type="date" id="eventDate" style="width:90%"><br>
+                <button class="btn btn-theme" onclick="addEvent()" style="width:100%; margin-top:10px;">추가하기</button>
+                
+                <hr style="margin:20px 0; border:0; border-top:1px solid var(--border-color);">
+                <p style="font-size: 0.9em; color: #888;">* 달력의 일정을 클릭하면 삭제할 수 있습니다.</p>
+            </div>
+        </div>
     </div>
 
     <script>
         let calendar;
         let events = JSON.parse(localStorage.getItem('studyEvents')) || [];
+        
+        // 타이머 변수
+        let timerInterval;
+        let seconds = 0;
 
-        // --- 로그인 시스템 ---
         function handleLogin() {
             const user = document.getElementById('username').value;
             if(user) {
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
                 initCalendar();
-            } else {
-                alert("아이디를 입력해주세요.");
             }
         }
 
-        function handleLogout() {
-            document.getElementById('login-section').style.display = 'block';
-            document.getElementById('main-content').style.display = 'none';
-        }
-
-        // --- 다크 모드 ---
         function toggleDarkMode() {
             const body = document.body;
-            const theme = body.getAttribute('data-theme');
-            if (theme === 'dark') {
-                body.removeAttribute('data-theme');
-            } else {
-                body.setAttribute('data-theme', 'dark');
-            }
+            body.setAttribute('data-theme', body.getAttribute('data-theme') === 'dark' ? '' : 'dark');
         }
 
-        // --- 달력 초기화 및 기능 ---
+        // --- 타이머 로직 ---
+        function startTimer() {
+            if (timerInterval) return;
+            timerInterval = setInterval(() => {
+                seconds++;
+                updateTimerDisplay();
+            }, 1000);
+            document.getElementById('startBtn').innerText = "진행 중...";
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            document.getElementById('startBtn').innerText = "재개";
+        }
+
+        function updateTimerDisplay() {
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${h}:${m}:${s}`;
+        }
+
+        function recordStudyTime() {
+            if (seconds < 60) {
+                alert("최소 1분 이상 공부해야 기록할 수 있습니다!");
+                return;
+            }
+            
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const timeString = h > 0 ? `${h}시간 ${m}분` : `${m}분`;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const title = `📖 열공: ${timeString}`;
+            
+            const newEvent = { title: title, start: today, allDay: true, backgroundColor: '#ff6b6b' };
+            calendar.addEvent(newEvent);
+            events.push(newEvent);
+            saveEvents();
+
+            // 초기화
+            clearInterval(timerInterval);
+            timerInterval = null;
+            seconds = 0;
+            updateTimerDisplay();
+            document.getElementById('startBtn').innerText = "시작";
+            alert("오늘의 공부 기록이 달력에 저장되었습니다!");
+        }
+
+        // --- 달력 로직 ---
         function initCalendar() {
             const calendarEl = document.getElementById('calendar');
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 locale: 'ko',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek'
-                },
                 events: events,
                 eventClick: function(info) {
-                    if(confirm("이 일정을 삭제할까요?")) {
+                    if(confirm("이 기록을 삭제할까요?")) {
                         info.event.remove();
                         events = events.filter(e => e.title !== info.event.title || e.start !== info.event.startStr);
                         saveEvents();
@@ -178,26 +220,18 @@
             calendar.render();
         }
 
-        // 일정 추가
         function addEvent() {
             const title = document.getElementById('eventTitle').value;
             const date = document.getElementById('eventDate').value;
-
             if (title && date) {
                 const newEvent = { title: title, start: date, allDay: true };
                 calendar.addEvent(newEvent);
                 events.push(newEvent);
                 saveEvents();
-                
-                // 입력창 초기화
                 document.getElementById('eventTitle').value = '';
-                document.getElementById('eventDate').value = '';
-            } else {
-                alert("내용과 날짜를 입력해주세요!");
             }
         }
 
-        // 로컬 스토리지 저장
         function saveEvents() {
             localStorage.setItem('studyEvents', JSON.stringify(events));
         }
