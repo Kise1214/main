@@ -1,211 +1,64 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<title>Study Planner</title>
-
-<!-- FullCalendar -->
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.css" rel="stylesheet">
-
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/main.min.js"></script>
-
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f9f9f9;
-  color: #000;
-}
-.dark {
-  background: #121212;
-  color: #fff;
-}
-header {
-  padding: 15px;
-  background: #1e90ff;
-  color: white;
-  display: flex;
-  justify-content: space-between;
-}
-.container {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-  padding: 20px;
-}
-.box {
-  background: white;
-  padding: 15px;
-  border-radius: 10px;
-}
-.dark .box {
-  background: #1e1e1e;
-}
-button {
-  background: #1e90ff;
-  color: white;
-  border: none;
-  padding: 6px 10px;
-  cursor: pointer;
-  border-radius: 5px;
-}
-input {
-  padding: 6px;
-  margin: 5px 0;
-  width: 100%;
-}
-ul {
-  list-style: none;
-  padding: 0;
-}
-li {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 5px;
-}
-</style>
-</head>
-
-<body>
-<header>
-  <div>📘 Study Planner</div>
-  <div>
-    <button onclick="toggleDark()">🌙</button>
-    <button onclick="logout()">로그아웃</button>
-  </div>
-</header>
-
-<div class="container">
-  <div class="box">
-    <div id="calendar"></div>
-  </div>
-
-  <div>
-    <div class="box">
-      <h3>오늘 할 일</h3>
-      <input id="todoInput" placeholder="할 일 입력">
-      <button onclick="addTodo()">➕</button>
-      <ul id="todoList"></ul>
-    </div>
-
-    <div class="box" style="margin-top:20px;">
-      <h3>공부 시간 기록</h3>
-      <input id="subject" placeholder="과목">
-      <input id="hours" type="number" placeholder="시간">
-      <button onclick="addStudy()">기록</button>
-      <p id="todayStudy"></p>
-    </div>
-  </div>
-</div>
-
-<script>
-/* Firebase 설정 */
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID"
-};
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-let calendar;
-const today = new Date().toISOString().split('T')[0];
-
-/* 다크모드 */
-function toggleDark() {
-  document.body.classList.toggle('dark');
-}
-
-/* 로그아웃 */
-function logout() {
-  auth.signOut();
-}
-
-/* 캘린더 */
 document.addEventListener('DOMContentLoaded', () => {
   calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
     initialView: 'dayGridMonth',
+    height: 'auto',
     initialDate: today,
-    selectable: true,
-    dateClick(info) {
-      const title = prompt('일정 제목');
-      if (title) {
-        db.collection('events').add({
-          title,
-          date: info.dateStr
-        });
-      }
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: ''
     },
+
+    dateClick(info) {
+      const title = prompt('일정 제목 입력');
+      if (!title) return;
+
+      db.collection('events').add({
+        title: title,
+        date: info.dateStr,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    },
+
     eventClick(info) {
-      if (confirm('일정 삭제할까?')) {
-        db.collection('events').doc(info.event.id).delete();
+      const action = prompt(
+        `1: 수정\n2: 삭제\n(숫자 입력)`
+      );
+
+      if (action === '1') {
+        const newTitle = prompt('새 일정 제목', info.event.title);
+        if (newTitle) {
+          db.collection('events')
+            .doc(info.event.id)
+            .update({ title: newTitle });
+        }
+      }
+
+      if (action === '2') {
+        if (confirm('정말 삭제할까?')) {
+          db.collection('events')
+            .doc(info.event.id)
+            .delete();
+        }
       }
     }
   });
+
   calendar.render();
 
-  db.collection('events').onSnapshot(snapshot => {
-    calendar.removeAllEvents();
-    snapshot.forEach(doc => {
-      calendar.addEvent({
-        id: doc.id,
-        title: doc.data().title,
-        start: doc.data().date
+  // 🔥 실시간 반영 핵심
+  db.collection('events')
+    .orderBy('date')
+    .onSnapshot(snapshot => {
+      calendar.removeAllEvents();
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        calendar.addEvent({
+          id: doc.id,
+          title: data.title,
+          start: data.date
+        });
       });
     });
-  });
-
-  loadTodo();
-  loadStudy();
 });
-
-/* 할 일 */
-function addTodo() {
-  const text = todoInput.value;
-  if (!text) return;
-  db.collection('todos').add({ text, date: today });
-  db.collection('events').add({ title: text, date: today });
-  todoInput.value = '';
-}
-
-function loadTodo() {
-  db.collection('todos').where('date','==',today)
-  .onSnapshot(snap => {
-    todoList.innerHTML = '';
-    snap.forEach(doc => {
-      const li = document.createElement('li');
-      li.innerHTML = `${doc.data().text} <button onclick="delTodo('${doc.id}')">❌</button>`;
-      todoList.appendChild(li);
-    });
-  });
-}
-function delTodo(id) {
-  db.collection('todos').doc(id).delete();
-}
-
-/* 공부 시간 */
-function addStudy() {
-  const s = subject.value;
-  const h = Number(hours.value);
-  if (!s || !h) return;
-  db.collection('study').add({ s, h, date: today });
-  subject.value = '';
-  hours.value = '';
-}
-function loadStudy() {
-  db.collection('study').where('date','==',today)
-  .onSnapshot(snap => {
-    let total = 0;
-    snap.forEach(d => total += d.data().h);
-    todayStudy.innerText = `오늘 공부 시간: ${total}시간`;
-  });
-}
-</script>
-</body>
-</html>
